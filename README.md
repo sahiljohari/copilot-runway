@@ -2,7 +2,7 @@
 
 An AI-flavored TODO app and session dashboard for [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli). Runs entirely in your browser — no server, no uploads, no telemetry.
 
-![Copilot Runway](https://img.shields.io/badge/zero--dependency-browser--only-blue)
+![Copilot Runway](https://img.shields.io/badge/no--backend-browser--only-blue)
 
 ## What it does
 
@@ -10,7 +10,6 @@ An AI-flavored TODO app and session dashboard for [GitHub Copilot CLI](https://d
 |---------|-------------|
 | **📋 Todos** | Create, filter, cycle (pending → in-progress → done). Import priorities from your daily briefing with one paste. |
 | **💾 Sessions** | Browse all your Copilot CLI sessions — summaries, checkpoints, files touched, initial/last messages. Click to expand, one-click `copilot resume <id>` copy. |
-| **🔗 Linked sessions** | Attach a session ID to any todo. Click to jump to the session, or resume it directly. |
 | **📥 Auto-import briefings** | On DB load, scans your sessions for recent `/daily-briefing` output and auto-creates todos (deduped). |
 | **🧹 Cleanup** | One-click workspace cleanup via companion server — stale logs, session artifacts, temp files. |
 | **🔄 Persistent refresh** | Connect your `session-store.db` once. The file handle is saved in IndexedDB. Hit 🔄 Refresh anytime — no file picker, no re-upload. |
@@ -30,7 +29,13 @@ start index.html        # Windows
 xdg-open index.html     # Linux
 ```
 
-### Option C: Cleanup companion (optional)
+### Option C: Both servers at once (Windows)
+
+```powershell
+.\start.ps1    # dashboard on :9090, cleanup API on :8111
+```
+
+### Option D: Cleanup companion only (optional)
 
 The Python CLI companion adds workspace cleanup (delete stale logs, session artifacts, temp files):
 
@@ -39,7 +44,7 @@ python cleanup.py              # starts cleanup API on http://localhost:8111
 python cleanup.py --port 9000  # custom port
 ```
 
-Zero dependencies — stdlib only.
+Zero external dependencies — Python stdlib only.
 
 ## How it works
 
@@ -60,7 +65,7 @@ Zero dependencies — stdlib only.
     your machine)
 ```
 
-- **sql.js** (WebAssembly SQLite) reads the session store entirely in-browser
+- **sql.js** (WebAssembly SQLite, loaded from CDN) reads the session store entirely in-browser
 - **IndexedDB** persists todos and the file handle across browser sessions
 - **File System Access API** re-reads the DB on refresh without a file picker
 - Nothing is uploaded, sent to a server, or stored externally
@@ -80,6 +85,7 @@ Zero dependencies — stdlib only.
 copilot-runway/
 ├── index.html     # Single-file browser app (all HTML/CSS/JS inline)
 ├── cleanup.py     # Optional cleanup companion server (localhost:8111)
+├── start.ps1      # Launch both servers at once (Windows)
 └── README.md
 ```
 
