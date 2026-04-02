@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copilot Runway</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.11.0/sql-wasm.min.js"></script>
+<style>
+:root{--bg:#0d1117;--s1:#161b22;--s2:#21262d;--bd:#30363d;--t1:#e6edf3;--t2:#8b949e;
+--ac:#58a6ff;--g:#3fb950;--w:#d29922;--r:#f85149;--p:#bc8cff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+background:var(--bg);color:var(--t1);line-height:1.5}
+.c{max-width:1200px;margin:0 auto;padding:20px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+header h1{font-size:22px;font-weight:600;white-space:nowrap}
+header h1 span{color:var(--ac)}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:24px}
+.tab{padding:10px 20px;cursor:pointer;font-size:14px;font-weight:500;color:var(--t2);
+border-bottom:2px solid transparent;transition:.15s}
+.tab:hover{color:var(--t1)}.tab.on{color:var(--ac);border-color:var(--ac)}
+.pane{display:none}.pane.on{display:block}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.sc{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px;text-align:center}
+.sc .v{font-size:28px;font-weight:700;color:var(--ac)}.sc .l{font-size:12px;color:var(--t2);margin-top:2px}
+.b{font-size:11px;padding:2px 8px;border-radius:12px;font-weight:500;white-space:nowrap;display:inline-block}
+.b-r{background:rgba(88,166,255,.15);color:var(--ac)}.b-g{background:rgba(63,185,80,.15);color:var(--g)}
+.b-w{background:rgba(210,153,34,.15);color:var(--w)}.b-p{background:rgba(188,140,255,.15);color:var(--p)}
+.b-hi{background:rgba(248,81,73,.15);color:var(--r)}.b-lo{background:rgba(139,148,158,.15);color:var(--t2)}
+.slist{display:flex;flex-direction:column;gap:4px}
+.scard{background:var(--s1);border:1px solid var(--bd);border-radius:10px;overflow:hidden;transition:.15s}
+.scard:hover{border-color:#3d444d}.scard.on{border-color:var(--ac)}
+.sbar{padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.sbar:hover{background:rgba(88,166,255,.03)}
+.sleft{flex:1;min-width:0}
+.stitle{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.smeta{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center}
+.sid{font-family:Consolas,monospace;font-size:11px;color:var(--t2);background:var(--s2);padding:1px 5px;border-radius:3px}
+.stime{font-size:12px;color:var(--t2);white-space:nowrap}
+.chev{font-size:12px;color:var(--t2);transition:transform .2s}.scard.on .chev{transform:rotate(90deg);color:var(--ac)}
+.sdetail{display:none;border-top:1px solid var(--bd);padding:18px 22px;background:var(--bg)}
+.scard.on .sdetail{display:block}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:768px){.dgrid{grid-template-columns:1fr}}
+.dsec{margin-bottom:14px}.dsec:last-child{margin-bottom:0}
+.dsec h3{font-size:11px;font-weight:700;color:var(--ac);text-transform:uppercase;letter-spacing:.7px;
+margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--bd)}
+.info td{padding:2px 0;font-size:13px}.info .k{color:var(--t2);padding-right:10px;white-space:nowrap}
+.info code{font-size:12px;background:var(--s2);padding:1px 4px;border-radius:3px}
+.msgbox{background:var(--s1);padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;
+word-break:break-word;max-height:90px;overflow-y:auto;border-left:3px solid var(--ac);line-height:1.4}
+.cplist{position:relative;padding-left:14px;max-height:350px;overflow-y:auto}
+.cplist::before{content:'';position:absolute;left:3px;top:4px;bottom:4px;width:2px;background:var(--bd)}
+.cp{position:relative;margin-bottom:10px}
+.cp::before{content:'';position:absolute;left:-14px;top:5px;width:8px;height:8px;border-radius:50%;
+background:var(--ac);border:2px solid var(--bg);z-index:1}
+.cp:last-child::before{background:var(--g)}
+.cpt{font-size:13px;font-weight:600}.cpn{font-size:12px;color:var(--t2);margin-top:1px;line-height:1.3}
+.fwrap{display:flex;flex-wrap:wrap;gap:3px;max-height:250px;overflow-y:auto}
+.fi{font-family:Consolas,monospace;font-size:11px;padding:3px 7px;background:var(--s1);border-radius:3px;color:var(--t2)}
+.fi .t{color:var(--g);margin-right:3px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;border:none;
+font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.btn:hover{opacity:.85}.btn-a{background:var(--ac);color:#fff}.btn-g{background:var(--g);color:#fff}
+.btn-r{background:var(--r);color:#fff}.btn-s{background:var(--s2);color:var(--t1);border:1px solid var(--bd)}
+.btn.ok{background:var(--g)!important}
+.pag{display:flex;justify-content:center;gap:8px;margin-top:16px}
+.pag button{padding:7px 14px;border-radius:7px;border:1px solid var(--bd);background:var(--s1);
+color:var(--t1);cursor:pointer;font-size:13px}
+.pag button:disabled{opacity:.4;cursor:default}
+.pag .pi{padding:7px 10px;font-size:13px;color:var(--t2)}
+.search input{width:100%;padding:9px 14px;border-radius:8px;border:1px solid var(--bd);
+background:var(--s1);color:var(--t1);font-size:14px;outline:none}
+.search input:focus{border-color:var(--ac)}
+.search input::placeholder{color:var(--t2)}
+.titem{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;background:var(--s1);
+border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;transition:.15s}
+.titem:hover{border-color:#3d444d}
+.tcheck{width:20px;height:20px;border-radius:6px;border:2px solid var(--bd);cursor:pointer;
+flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.tcheck:hover{border-color:var(--ac)}.tcheck.done{background:var(--g);border-color:var(--g)}
+.tcheck.done::after{content:'✓';color:#fff;font-size:12px;font-weight:700}
+.tbody{flex:1;min-width:0}
+.ttitle{font-size:14px;font-weight:600}.ttitle.done{text-decoration:line-through;color:var(--t2)}
+.tdesc{font-size:13px;color:var(--t2);margin-top:2px}
+.tfoot{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.tactions{flex-shrink:0;display:flex;gap:4px}
+.empty{text-align:center;padding:40px;color:var(--t2);font-size:14px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--bd);
+border-top-color:var(--ac);border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;
+justify-content:center;z-index:100}.modal-bg.on{display:flex}
+.modal{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:24px;width:90%;max-width:600px}
+.modal h2{font-size:18px;margin-bottom:12px}
+.modal textarea,.modal input[type=text]{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;
+color:var(--t1);padding:10px 12px;font-size:13px;outline:none}
+.modal textarea{height:200px;font-family:Consolas,monospace;resize:vertical}
+.modal textarea:focus,.modal input:focus{border-color:var(--ac)}
+.modal .mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+/* Connect banner */
+.connect-banner{background:var(--s1);border:2px dashed var(--bd);border-radius:14px;padding:48px 32px;
+text-align:center;margin:40px 0}
+.connect-banner h2{font-size:20px;margin-bottom:8px}
+.connect-banner p{color:var(--t2);font-size:14px;margin-bottom:20px;max-width:500px;margin-left:auto;margin-right:auto}
+.db-status{font-size:12px;padding:4px 10px;border-radius:12px;font-weight:500}
+.db-on{background:rgba(63,185,80,.15);color:var(--g)}.db-off{background:rgba(248,81,73,.15);color:var(--r)}
+/* Cleanup */
+.ccat{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:8px;
+display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ccat-info{flex:1}.ccat-label{font-size:14px;font-weight:600}
+.ccat-meta{font-size:13px;color:var(--t2);margin-top:2px}
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--s1);border:1px solid var(--g);
+border-radius:10px;padding:12px 20px;font-size:13px;color:var(--g);z-index:200;
+opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+</style>
+</head><body>
+<div class="c">
+  <header>
+    <h1>🛫 <span>Copilot</span> Runway</h1>
+    <div class="hright">
+      <span class="db-status db-off" id="dbStatus">⊘ No DB</span>
+      <button class="btn btn-s" id="btnConnect" onclick="pickDB()">📂 Connect DB</button>
+      <button class="btn btn-s" id="btnRefresh" onclick="refreshDB()" style="display:none">🔄 Refresh</button>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-t="todos">📋 Todos</div>
+    <div class="tab" data-t="sessions">💾 Sessions</div>
+    <div class="tab" data-t="cleanup">🧹 Cleanup</div>
+  </div>
+
+  <!-- Connect banner (shown when no DB loaded) -->
+  <div id="connectBanner" class="connect-banner">
+    <h2>Connect your session store</h2>
+    <p>Point this app at your <code>~/.copilot/session-store.db</code> file. It's read locally in your browser — nothing is uploaded anywhere.</p>
+    <button class="btn btn-a" onclick="pickDB()" style="font-size:15px;padding:10px 24px">📂 Select session-store.db</button>
+    <p style="margin-top:16px;font-size:12px;color:var(--t2)">Works in Chrome and Edge. The file handle is remembered across visits.</p>
+  </div>
+
+  <!-- TODOS -->
+  <div class="pane on" id="p-todos" style="display:none">
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <div class="search" style="flex:1;min-width:200px">
+        <input id="todoSearch" placeholder="Filter todos...">
+      </div>
+      <button class="btn btn-a" onclick="openModal('addModal')">+ Add Todo</button>
+      <button class="btn btn-s" onclick="openModal('importModal')">📥 Import Briefing</button>
+    </div>
+    <div class="stats" id="todoStats"></div>
+    <div id="todoFilter" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+    <div id="todoList"></div>
+  </div>
+
+  <!-- SESSIONS -->
+  <div class="pane" id="p-sessions">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <div class="search" style="flex:1;min-width:200px">
+        <input id="sessSearch" placeholder="Search sessions by summary, repo, branch, or ID...">
+      </div>
+    </div>
+    <div class="stats" id="sessStats"></div>
+    <div class="slist" id="sessList"></div>
+    <div class="pag" id="sessPag"></div>
+  </div>
+
+  <!-- CLEANUP -->
+  <div class="pane" id="p-cleanup">
+    <div class="stats" id="cleanStats"></div>
+    <div id="cleanList"><div class="empty">Click <b>Scan</b> to check for cleanup targets.</div></div>
+    <div style="text-align:center;margin-top:12px">
+      <button class="btn btn-a" id="btnScan" onclick="scanCleanup()">🔍 Scan for cleanup targets</button>
+    </div>
+    <p id="cleanHelp" style="display:none;text-align:center;margin-top:16px;font-size:12px;color:var(--t2)">
+      Requires the companion server: <code>python cleanup.py</code> on port 8111
+    </p>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<!-- Import modal -->
+<div class="modal-bg" id="importModal">
+  <div class="modal">
+    <h2>📥 Import Daily Briefing</h2>
+    <p style="font-size:13px;color:var(--t2);margin-bottom:10px">Paste your <code>/daily-briefing</code> output. Priority items become todos.</p>
+    <textarea id="importText" placeholder="Paste daily briefing output here..."></textarea>
+    <div class="mfoot">
+      <button class="btn btn-s" onclick="closeModal('importModal')">Cancel</button>
+      <button class="btn btn-a" onclick="doImport()">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add todo modal -->
+<div class="modal-bg" id="addModal">
+  <div class="modal">
+    <h2>+ New Todo</h2>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input type="text" id="addTitle" placeholder="Title">
+      <textarea id="addDesc" placeholder="Description (optional)" style="height:80px"></textarea>
+      <div style="display:flex;gap:8px">
+        <select id="addPriority" style="padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);font-size:13px">
+          <option value="high">🔴 High</option><option value="medium" selected>🟡 Medium</option><option value="low">🟢 Low</option>
+        </select>
+        <input type="text" id="addSession" placeholder="Link session ID (optional)" style="flex:1">
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-s" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-a" onclick="doAddTodo()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  Core state
+// ═══════════════════════════════════════════════════════════════
+let DB = null;             // sql.js Database instance (session store, read-only)
+let fileHandle = null;     // FileSystemFileHandle for refresh
+let allTodos = [];
+let todoFilter = null;
+let sessOffset = 0, sessQuery = '', activeSess = null;
+const PAGE = 30;
+const HANDLE_STORE = 'copilot-runway-handles';
+const TODO_STORE   = 'copilot-runway-todos';
+
+// ═══════════════════════════════════════════════════════════════
+//  Utilities
+// ═══════════════════════════════════════════════════════════════
+const esc = s => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+const trunc = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
+const ago = d => { if (!d) return ''; const s = Math.floor((Date.now() - new Date(d)) / 1000);
+  if (s < 60) return 'now'; if (s < 3600) return (s/60|0)+'m'; if (s < 86400) return (s/3600|0)+'h';
+  const dd = s/86400|0; return dd < 7 ? dd+'d' : dd < 30 ? (dd/7|0)+'w' : new Date(d).toLocaleDateString(); };
+const prioBadge = p => p==='high'?'<span class="b b-hi">high</span>':p==='low'?'<span class="b b-lo">low</span>':'<span class="b b-w">med</span>';
+const shortPath = p => { const m = p.match(/[\\\/]repos[\\\/](.+)/i) || p.match(/[\\\/]source[\\\/](.+)/i);
+  if (m) return m[1]; const s = p.replace(/\//g,'\\').split('\\'); return s.length > 3 ? '…\\'+s.slice(-3).join('\\') : p; };
+const uid = () => crypto.randomUUID().slice(0, 8);
+function openModal(id) { document.getElementById(id).classList.add('on'); }
+function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+
+// ═══════════════════════════════════════════════════════════════
+//  IndexedDB helpers (file handle + todos persistence)
+// ═══════════════════════════════════════════════════════════════
+function idbOpen(name, version = 1) {
+  return new Promise((ok, fail) => {
+    const req = indexedDB.open(name, version);
+    req.onupgradeneeded = () => { req.result.createObjectStore('kv'); };
+    req.onsuccess = () => ok(req.result);
+    req.onerror = () => fail(req.error);
+  });
+}
+async function idbGet(store, key) {
+  const db = await idbOpen(store);
+  return new Promise((ok, fail) => {
+    const tx = db.transaction('kv', 'readonly');
+    const req = tx.objectStore('kv').get(key);
+    req.onsuccess = () => { ok(req.result); db.close(); };
+    req.onerror = () => { fail(req.error); db.close(); };
+  });
+}
+async function idbSet(store, key, val) {
+  const db = await idbOpen(store);
+  return new Promise((ok, fail) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(val, key);
+    tx.oncomplete = () => { ok(); db.close(); };
+    tx.onerror = () => { fail(tx.error); db.close(); };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  File System Access — connect / refresh session-store.db
+// ═══════════════════════════════════════════════════════════════
+async function loadDBFromHandle(handle) {
+  const perm = await handle.queryPermission({ mode: 'read' });
+  if (perm !== 'granted') {
+    const req = await handle.requestPermission({ mode: 'read' });
+    if (req !== 'granted') throw new Error('Permission denied');
+  }
+  const file = await handle.getFile();
+  const buf = await file.arrayBuffer();
+  const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.11.0/${f}` });
+  DB = new SQL.Database(new Uint8Array(buf));
+  fileHandle = handle;
+  await idbSet(HANDLE_STORE, 'dbHandle', handle);
+  onDBLoaded(file.name, file.size, file.lastModified);
+}
+
+async function pickDB() {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'SQLite DB', accept: { 'application/octet-stream': ['.db'] } }],
+      startIn: 'documents'
+    });
+    await loadDBFromHandle(handle);
+  } catch (e) {
+    if (e.name !== 'AbortError') alert('Failed to open DB: ' + e.message);
+  }
+}
+
+async function refreshDB() {
+  if (!fileHandle) return;
+  const btn = document.getElementById('btnRefresh');
+  btn.textContent = '⏳ Loading...'; btn.disabled = true;
+  try {
+    await loadDBFromHandle(fileHandle);
+  } catch (e) {
+    alert('Refresh failed: ' + e.message);
+  }
+  btn.textContent = '🔄 Refresh'; btn.disabled = false;
+}
+
+function onDBLoaded(name, size, lastMod) {
+  document.getElementById('connectBanner').style.display = 'none';
+  document.getElementById('p-todos').style.display = '';
+  document.getElementById('dbStatus').className = 'db-status db-on';
+  document.getElementById('dbStatus').textContent = `✓ ${name} (${(size/1024/1024).toFixed(1)} MB)`;
+  document.getElementById('btnRefresh').style.display = '';
+  document.getElementById('btnRefresh').title = 'Last modified: ' + new Date(lastMod).toLocaleString();
+  loadSessions();
+  autoImportBriefing();
+}
+
+// Auto-reconnect on page load
+async function tryAutoConnect() {
+  try {
+    const handle = await idbGet(HANDLE_STORE, 'dbHandle');
+    if (handle) await loadDBFromHandle(handle);
+  } catch (_) { /* first visit or permission denied — show connect banner */ }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Session queries (sql.js — all local, in-browser)
+// ═══════════════════════════════════════════════════════════════
+function sqlAll(query, params = []) {
+  if (!DB) return [];
+  const stmt = DB.prepare(query);
+  stmt.bind(params);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
+}
+function sqlOne(query, params = []) {
+  const rows = sqlAll(query, params);
+  return rows[0] || null;
+}
+
+function qSessions(search, limit, offset) {
+  let w = '', p = [];
+  if (search) {
+    w = "WHERE (s.summary LIKE ?1 OR s.repository LIKE ?1 OR s.branch LIKE ?1 OR s.id LIKE ?1)";
+    p = [`%${search}%`];
+  }
+  const rows = sqlAll(`SELECT s.id, s.summary, s.repository, s.branch, s.cwd,
+    s.created_at, s.updated_at, COUNT(DISTINCT t.id) as turn_count,
+    COUNT(DISTINCT sf.file_path) as files_touched
+    FROM sessions s LEFT JOIN turns t ON t.session_id=s.id
+    LEFT JOIN session_files sf ON sf.session_id=s.id
+    ${w} GROUP BY s.id ORDER BY s.updated_at DESC LIMIT $lim OFFSET $off`,
+    [...p, limit, offset]);
+  const total = sqlOne(`SELECT COUNT(*) as c FROM sessions s ${w}`, p)?.c || 0;
+  return { sessions: rows, total };
+}
+
+function qDetail(sid) {
+  const s = sqlOne("SELECT * FROM sessions WHERE id=?", [sid]);
+  if (!s) return null;
+  s.checkpoints = sqlAll("SELECT checkpoint_number,title,overview,next_steps,created_at FROM checkpoints WHERE session_id=? ORDER BY checkpoint_number", [sid]);
+  s.files = sqlAll("SELECT file_path,tool_name FROM session_files WHERE session_id=? ORDER BY first_seen_at", [sid]);
+  s.refs = sqlAll("SELECT ref_type,ref_value FROM session_refs WHERE session_id=?", [sid]);
+  const first = sqlOne("SELECT user_message FROM turns WHERE session_id=? ORDER BY turn_index LIMIT 1", [sid]);
+  const last = sqlOne("SELECT user_message FROM turns WHERE session_id=? ORDER BY turn_index DESC LIMIT 1", [sid]);
+  s.first_message = first ? (first.user_message || '').slice(0, 500) : null;
+  s.last_message = last ? (last.user_message || '').slice(0, 500) : null;
+  s.turn_count = sqlOne("SELECT COUNT(*) as c FROM turns WHERE session_id=?", [sid])?.c || 0;
+  return s;
+}
+
+function qStats() {
+  return {
+    total_sessions: sqlOne("SELECT COUNT(*) as c FROM sessions")?.c || 0,
+    with_checkpoints: sqlOne("SELECT COUNT(DISTINCT session_id) as c FROM checkpoints")?.c || 0,
+    total_turns: sqlOne("SELECT COUNT(*) as c FROM turns")?.c || 0,
+    total_files: sqlOne("SELECT COUNT(DISTINCT file_path) as c FROM session_files")?.c || 0,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TODO storage (IndexedDB — browser-persistent)
+// ═══════════════════════════════════════════════════════════════
+async function loadTodos() {
+  allTodos = (await idbGet(TODO_STORE, 'todos')) || [];
+  renderTodos();
+}
+
+async function saveTodos() {
+  await idbSet(TODO_STORE, 'todos', allTodos);
+}
+
+function parseBriefing(text) {
+  const todos = [];
+  const prio = { 1: 'high', 2: 'high', 3: 'medium', 4: 'medium', 5: 'low' };
+  for (const m of text.matchAll(/^\s*(\d+)\.\s+\*\*(.+?)\*\*\s*[—–-]\s*(.+)$/gm)) {
+    // Strip markdown links [text](url) → text, and bold markers
+    const clean = s => s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\*\*/g, '').trim();
+    todos.push({ id: uid(), title: clean(m[2]), description: clean(m[3]),
+      priority: prio[+m[1]] || 'low', source: 'briefing', status: 'pending',
+      session_id: null, created_at: new Date().toISOString() });
+  }
+  return todos;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Rendering — Todos
+// ═══════════════════════════════════════════════════════════════
+function renderTodos() {
+  const q = (document.getElementById('todoSearch').value || '').toLowerCase();
+  let list = allTodos;
+  if (todoFilter) list = list.filter(t => t.status === todoFilter);
+  if (q) list = list.filter(t => (t.title + ' ' + t.description).toLowerCase().includes(q));
+
+  const counts = { pending: 0, in_progress: 0, done: 0 };
+  allTodos.forEach(t => counts[t.status] = (counts[t.status] || 0) + 1);
+
+  document.getElementById('todoStats').innerHTML = `
+    <div class="sc"><div class="v">${allTodos.length}</div><div class="l">Total</div></div>
+    <div class="sc"><div class="v" style="color:var(--w)">${counts.pending||0}</div><div class="l">Pending</div></div>
+    <div class="sc"><div class="v" style="color:var(--ac)">${counts.in_progress||0}</div><div class="l">In Progress</div></div>
+    <div class="sc"><div class="v" style="color:var(--g)">${counts.done||0}</div><div class="l">Done</div></div>`;
+
+  const filters = [null, 'pending', 'in_progress', 'done'];
+  const labels = ['All', 'Pending', 'In Progress', 'Done'];
+  document.getElementById('todoFilter').innerHTML = filters.map((f, i) =>
+    `<button class="btn ${f === todoFilter ? 'btn-a' : 'btn-s'}" data-f="${f}">${labels[i]}</button>`
+  ).join('');
+  document.querySelectorAll('#todoFilter button').forEach(b => b.onclick = () => {
+    todoFilter = b.dataset.f === 'null' ? null : b.dataset.f; renderTodos();
+  });
+
+  if (!list.length) {
+    document.getElementById('todoList').innerHTML = '<div class="empty">No todos yet. Add one or import from your daily briefing.</div>';
+    return;
+  }
+
+  document.getElementById('todoList').innerHTML = list.map(t => `
+    <div class="titem" data-id="${t.id}">
+      <div class="tcheck ${t.status === 'done' ? 'done' : ''}" data-tid="${t.id}"></div>
+      <div class="tbody">
+        <div class="ttitle ${t.status === 'done' ? 'done' : ''}">${esc(t.title)}</div>
+        ${t.description ? `<div class="tdesc">${esc(trunc(t.description, 200))}</div>` : ''}
+        <div class="tfoot">
+          ${prioBadge(t.priority)}
+          ${t.source === 'briefing' ? '<span class="b b-p">briefing</span>' : ''}
+          ${t.session_id ? `<span class="b b-r" style="cursor:pointer" data-goto="${t.session_id}">🔗 ${t.session_id.slice(0,8)}</span>` : ''}
+          <span style="font-size:11px;color:var(--t2)">${ago(t.created_at)}</span>
+        </div>
+      </div>
+      <div class="tactions">
+        ${t.session_id ? `<button class="btn btn-s" style="font-size:11px;padding:4px 8px" data-resume="${t.session_id}">▶ Resume</button>` : ''}
+        <button class="btn btn-s" style="font-size:11px;padding:4px 8px;color:var(--r)" data-del="${t.id}">✕</button>
+      </div>
+    </div>`).join('');
+
+  // Event delegation
+  document.getElementById('todoList').onclick = async (e) => {
+    const el = e.target.closest('[data-tid],[data-del],[data-resume],[data-goto]');
+    if (!el) return;
+    if (el.dataset.tid) { await toggleTodo(el.dataset.tid); }
+    if (el.dataset.del) { allTodos = allTodos.filter(t => t.id !== el.dataset.del); await saveTodos(); renderTodos(); }
+    if (el.dataset.resume) { copyResume(el.dataset.resume, el); }
+    if (el.dataset.goto) { showSessionTab(el.dataset.goto); }
+  };
+}
+
+async function toggleTodo(id) {
+  const t = allTodos.find(t => t.id === id);
+  if (!t) return;
+  t.status = t.status === 'done' ? 'pending' : t.status === 'pending' ? 'in_progress' : 'done';
+  await saveTodos();
+  renderTodos();
+}
+
+async function doAddTodo() {
+  const title = document.getElementById('addTitle').value.trim();
+  if (!title) return;
+  allTodos.unshift({ id: uid(), title, description: document.getElementById('addDesc').value,
+    priority: document.getElementById('addPriority').value, source: 'manual',
+    session_id: document.getElementById('addSession').value || null,
+    status: 'pending', created_at: new Date().toISOString() });
+  await saveTodos();
+  closeModal('addModal');
+  document.getElementById('addTitle').value = '';
+  document.getElementById('addDesc').value = '';
+  document.getElementById('addSession').value = '';
+  renderTodos();
+}
+
+async function doImport() {
+  const text = document.getElementById('importText').value;
+  if (!text.trim()) return;
+  const items = parseBriefing(text);
+  allTodos.unshift(...items);
+  await saveTodos();
+  closeModal('importModal');
+  document.getElementById('importText').value = '';
+  renderTodos();
+  alert(`Imported ${items.length} todo(s) from briefing.`);
+}
+
+document.getElementById('todoSearch').addEventListener('input', () => renderTodos());
+
+// ═══════════════════════════════════════════════════════════════
+//  Rendering — Sessions
+// ═══════════════════════════════════════════════════════════════
+function loadSessions() {
+  if (!DB) return;
+  const d = qSessions(sessQuery, PAGE, sessOffset);
+  if (!sessQuery) {
+    const st = qStats();
+    document.getElementById('sessStats').innerHTML = `
+      <div class="sc"><div class="v">${st.total_sessions}</div><div class="l">Sessions</div></div>
+      <div class="sc"><div class="v">${st.with_checkpoints}</div><div class="l">Checkpoints</div></div>
+      <div class="sc"><div class="v">${st.total_turns.toLocaleString()}</div><div class="l">Turns</div></div>
+      <div class="sc"><div class="v">${st.total_files}</div><div class="l">Files</div></div>`;
+  } else { document.getElementById('sessStats').innerHTML = ''; }
+
+  if (!d.sessions.length) {
+    document.getElementById('sessList').innerHTML = '<div class="empty">No sessions found.</div>';
+    document.getElementById('sessPag').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('sessList').innerHTML = d.sessions.map(s => `
+    <div class="scard" data-id="${s.id}" id="sc-${s.id}">
+      <div class="sbar" data-toggle="${s.id}">
+        <div class="sleft">
+          <div class="stitle">${esc(s.summary) || '<em style="color:var(--t2)">Untitled</em>'}</div>
+          <div class="smeta">
+            <code class="sid">${s.id.slice(0,8)}</code>
+            ${s.repository ? `<span class="b b-r">${esc(s.repository)}</span>` : ''}
+            ${s.branch ? `<span class="b b-p">${esc(s.branch)}</span>` : ''}
+            <span class="b b-g">${s.turn_count} turns</span>
+            ${s.files_touched > 0 ? `<span class="b b-w">${s.files_touched} files</span>` : ''}
+          </div>
+        </div>
+        <div class="stime">${ago(s.updated_at)}</div>
+        <div class="chev">▶</div>
+      </div>
+      <div class="sdetail" id="sd-${s.id}"></div>
+    </div>`).join('');
+
+  // Event delegation for session toggles
+  document.getElementById('sessList').onclick = (e) => {
+    const bar = e.target.closest('[data-toggle]');
+    if (bar) toggleSess(bar.dataset.toggle);
+    const resume = e.target.closest('[data-resume]');
+    if (resume) { e.stopPropagation(); copyResume(resume.dataset.resume, resume); }
+    const addTodo = e.target.closest('[data-addtodo]');
+    if (addTodo) { e.stopPropagation(); createTodoFromSession(addTodo.dataset.addtodo, addTodo.dataset.summary || ''); }
+  };
+
+  const tp = Math.ceil(d.total / PAGE), cp = Math.floor(sessOffset / PAGE) + 1;
+  document.getElementById('sessPag').innerHTML = `
+    <button onclick="sessOffset=Math.max(0,sessOffset-${PAGE});loadSessions()" ${cp <= 1 ? 'disabled' : ''}>← Prev</button>
+    <span class="pi">Page ${cp}/${tp} (${d.total})</span>
+    <button onclick="sessOffset+=${PAGE};loadSessions()" ${cp >= tp ? 'disabled' : ''}>Next →</button>`;
+
+  if (activeSess) {
+    const card = document.getElementById('sc-' + activeSess);
+    if (card) { card.classList.add('on'); renderSessDetail(activeSess); }
+  }
+}
+
+function toggleSess(sid) {
+  const card = document.getElementById('sc-' + sid);
+  const was = card.classList.contains('on');
+  document.querySelectorAll('.scard.on').forEach(c => c.classList.remove('on'));
+  if (was) { activeSess = null; return; }
+  activeSess = sid;
+  card.classList.add('on');
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  renderSessDetail(sid);
+}
+
+function renderSessDetail(sid) {
+  const el = document.getElementById('sd-' + sid);
+  if (!el) return;
+  const s = qDetail(sid);
+  if (!s) return;
+
+  const cp = s.checkpoints?.length ? `<div class="dsec"><h3>Checkpoints (${s.checkpoints.length})</h3>
+    <div class="cplist">${s.checkpoints.map(c => `<div class="cp"><div class="cpt">#${c.checkpoint_number}: ${esc(c.title)}</div>
+    ${c.next_steps ? `<div class="cpn">${esc(trunc(c.next_steps, 160))}</div>` : ''}</div>`).join('')}</div></div>` : '';
+  const fi = s.files?.length ? `<div class="dsec"><h3>Files (${s.files.length})</h3>
+    <div class="fwrap">${s.files.map(f => `<span class="fi"><span class="t">${f.tool_name === 'create' ? '+' : '~'}</span>${esc(shortPath(f.file_path))}</span>`).join('')}</div></div>` : '';
+
+  el.innerHTML = `<div class="dgrid"><div>
+    <div class="dsec"><h3>Session Info</h3><table class="info">
+      <tr><td class="k">ID</td><td><code>${s.id}</code></td></tr>
+      <tr><td class="k">Created</td><td>${new Date(s.created_at).toLocaleString()}</td></tr>
+      <tr><td class="k">Active</td><td>${new Date(s.updated_at).toLocaleString()} (${ago(s.updated_at)})</td></tr>
+      <tr><td class="k">Turns</td><td>${s.turn_count}</td></tr>
+      ${s.cwd ? `<tr><td class="k">CWD</td><td><code>${esc(s.cwd)}</code></td></tr>` : ''}</table>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-a" data-resume="${s.id}">▶ Copy Resume</button>
+        <button class="btn btn-s" data-addtodo="${s.id}" data-summary="${esc(s.summary || '')}">+ Todo</button>
+      </div></div>
+    ${s.first_message ? `<div class="dsec"><h3>Initial Ask</h3><div class="msgbox">${esc(trunc(s.first_message, 350))}</div></div>` : ''}
+    ${s.last_message && s.last_message !== s.first_message ? `<div class="dsec"><h3>Last Message</h3><div class="msgbox">${esc(trunc(s.last_message, 350))}</div></div>` : ''}
+  </div><div>${cp}${fi}</div></div>`;
+}
+
+function copyResume(id, btn) {
+  navigator.clipboard.writeText('copilot resume ' + id).then(() => {
+    const orig = btn.innerHTML; btn.innerHTML = '✅ Copied!'; btn.classList.add('ok');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('ok'); }, 1500);
+  });
+}
+
+function createTodoFromSession(sid, summary) {
+  document.getElementById('addTitle').value = 'Resume: ' + summary;
+  document.getElementById('addSession').value = sid;
+  openModal('addModal');
+}
+
+function showSessionTab(sid) {
+  document.querySelectorAll('.tab,.pane').forEach(e => e.classList.remove('on'));
+  document.querySelector('[data-t="sessions"]').classList.add('on');
+  document.getElementById('p-sessions').classList.add('on');
+  document.getElementById('sessSearch').value = sid.slice(0, 8);
+  sessQuery = sid.slice(0, 8); sessOffset = 0;
+  loadSessions();
+  setTimeout(() => toggleSess(sid), 100);
+}
+
+let sessSearchTimer;
+document.getElementById('sessSearch').addEventListener('input', e => {
+  clearTimeout(sessSearchTimer);
+  sessSearchTimer = setTimeout(() => {
+    sessQuery = e.target.value.trim(); sessOffset = 0; activeSess = null; loadSessions();
+  }, 300);
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  Auto-import: scan session store for recent daily-briefing output
+// ═══════════════════════════════════════════════════════════════
+async function autoImportBriefing() {
+  if (!DB) return;
+  // Find the most recent daily-briefing assistant response (last 7 days)
+  const rows = sqlAll(`
+    SELECT t.assistant_response, t.timestamp, s.id as session_id
+    FROM turns t JOIN sessions s ON t.session_id = s.id
+    WHERE (t.user_message LIKE '%daily-briefing%' OR t.user_message LIKE '%daily briefing%')
+      AND t.assistant_response LIKE '%Suggested Priorities%'
+      AND t.timestamp >= datetime('now', '-7 days')
+    ORDER BY t.timestamp DESC LIMIT 3
+  `);
+  if (!rows.length) return;
+
+  const existingTitles = new Set(allTodos.map(t => t.title.toLowerCase()));
+  let imported = 0;
+
+  for (const row of rows) {
+    const items = parseBriefing(row.assistant_response || '');
+    for (const item of items) {
+      if (!existingTitles.has(item.title.toLowerCase())) {
+        item.created_at = row.timestamp || new Date().toISOString();
+        allTodos.unshift(item);
+        existingTitles.add(item.title.toLowerCase());
+        imported++;
+      }
+    }
+  }
+
+  if (imported > 0) {
+    await saveTodos();
+    renderTodos();
+    showToast(`📥 Auto-imported ${imported} todo(s) from recent briefings`);
+  }
+}
+
+function showToast(msg, duration = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), duration);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Cleanup (calls companion server at localhost:8111)
+// ═══════════════════════════════════════════════════════════════
+const COMPANION = 'http://localhost:8111';
+
+function humanSize(b) {
+  for (const u of ['B','KB','MB','GB']) { if (b < 1024) return b.toFixed(b < 10 ? 1 : 0) + ' ' + u; b /= 1024; }
+  return b.toFixed(1) + ' TB';
+}
+
+async function scanCleanup() {
+  const btn = document.getElementById('btnScan');
+  btn.textContent = '⏳ Scanning...'; btn.disabled = true;
+  document.getElementById('cleanHelp').style.display = 'none';
+  try {
+    const resp = await fetch(COMPANION + '/api/cleanup/scan');
+    if (!resp.ok) throw new Error('Server error');
+    const cats = await resp.json();
+
+    const total = cats.reduce((a, c) => a + c.size, 0);
+    document.getElementById('cleanStats').innerHTML = `
+      <div class="sc"><div class="v">${cats.length}</div><div class="l">Categories</div></div>
+      <div class="sc"><div class="v">${cats.reduce((a, c) => a + c.count, 0)}</div><div class="l">Files</div></div>
+      <div class="sc"><div class="v" style="color:${total > 0 ? 'var(--w)' : 'var(--g)'}">${humanSize(total)}</div><div class="l">Reclaimable</div></div>`;
+
+    if (!cats.length) {
+      document.getElementById('cleanList').innerHTML = '<div class="empty">✨ Workspace is clean! Nothing to remove.</div>';
+    } else {
+      document.getElementById('cleanList').innerHTML = cats.map(c => `
+        <div class="ccat" id="cc-${c.id}">
+          <div class="ccat-info">
+            <div class="ccat-label">${esc(c.label)}</div>
+            <div class="ccat-meta">${c.count} files · ${humanSize(c.size)}</div>
+          </div>
+          <button class="btn btn-r" data-clean="${c.id}">Clean</button>
+        </div>`).join('');
+      document.getElementById('cleanList').onclick = async (e) => {
+        const btn = e.target.closest('[data-clean]');
+        if (!btn) return;
+        btn.disabled = true; btn.textContent = 'Cleaning...';
+        try {
+          const r = await fetch(COMPANION + '/api/cleanup/run', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({categories: [btn.dataset.clean]})
+          }).then(r => r.json());
+          btn.textContent = `✅ ${r.freed_human} freed`;
+          btn.className = 'btn btn-g';
+          showToast(`🧹 Cleaned ${r.removed} files, freed ${r.freed_human}`);
+          setTimeout(scanCleanup, 1500);
+        } catch (_) { btn.textContent = '❌ Failed'; }
+      };
+    }
+  } catch (_) {
+    document.getElementById('cleanList').innerHTML = '<div class="empty">Could not reach companion server.</div>';
+    document.getElementById('cleanStats').innerHTML = '';
+    document.getElementById('cleanHelp').style.display = '';
+  }
+  btn.textContent = '🔍 Scan for cleanup targets'; btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Tabs
+// ═══════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab,.pane').forEach(e => e.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById('p-' + t.dataset.t).classList.add('on');
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════════════════════════════
+(async () => {
+  await loadTodos();
+  await tryAutoConnect();
+})();
+</script>
+</body></html>
