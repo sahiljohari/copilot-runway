@@ -16,11 +16,7 @@ An AI-flavored TODO app and session dashboard for [GitHub Copilot CLI](https://d
 
 ## Quick start
 
-### Option A: GitHub Pages (hosted)
-
-Visit **[sahiljohari.github.io/copilot-runway](https://sahiljohari.github.io/copilot-runway)** → click **Connect DB** → select `~/.copilot/session-store.db`.
-
-### Option B: Local file
+### Option A: Local file
 
 ```bash
 # Just open it
@@ -29,13 +25,13 @@ start index.html        # Windows
 xdg-open index.html     # Linux
 ```
 
-### Option C: Both servers at once (Windows)
+### Option B: Both servers at once (Windows)
 
 ```powershell
 .\start.ps1    # dashboard on :9090, cleanup API on :8111
 ```
 
-### Option D: Cleanup companion only (optional)
+### Option C: Cleanup companion only (optional)
 
 The Python CLI companion adds workspace cleanup (delete stale logs, session artifacts, temp files):
 
