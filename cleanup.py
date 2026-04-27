@@ -22,6 +22,9 @@ HOME = Path.home()
 COPILOT_DIR = HOME / ".copilot"
 LOG_RETENTION_DAYS = 7
 LOG_RETENTION_COUNT = 5
+LOW_ACTIVITY_TURN_THRESHOLD = 3
+LOW_ACTIVITY_CHECKPOINT_THRESHOLD = 0
+SESSION_STORE_DB = COPILOT_DIR / "session-store.db"
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -43,12 +46,42 @@ def _human_size(b):
     return f"{b:.1f} TB"
 
 
+def _rmtree(p):
+    """Remove a directory tree."""
+    import shutil
+    shutil.rmtree(p, ignore_errors=True)
+
+
 def _category(cid, label, files):
     infos = [f for f in (map(_file_info, files)) if f]
     if not infos:
         return None
     return {"id": cid, "label": label, "files": infos,
             "count": len(infos), "size": sum(f["size"] for f in infos)}
+
+
+def _low_activity_session_ids():
+    """Return session IDs with fewer than the threshold turns and checkpoints."""
+    if not SESSION_STORE_DB.exists():
+        return set()
+    try:
+        conn = sqlite3.connect(str(SESSION_STORE_DB))
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute("""
+            SELECT s.id
+            FROM sessions s
+            LEFT JOIN (SELECT session_id, COUNT(*) as cnt FROM turns GROUP BY session_id) t
+                ON t.session_id = s.id
+            LEFT JOIN (SELECT session_id, COUNT(*) as cnt FROM checkpoints GROUP BY session_id) c
+                ON c.session_id = s.id
+            WHERE COALESCE(t.cnt, 0) < ?
+              AND COALESCE(c.cnt, 0) <= ?
+        """, (LOW_ACTIVITY_TURN_THRESHOLD, LOW_ACTIVITY_CHECKPOINT_THRESHOLD))
+        ids = {row["id"] for row in cur.fetchall()}
+        conn.close()
+        return ids
+    except Exception:
+        return set()
 
 
 # ── Scan ─────────────────────────────────────────────────────
@@ -99,6 +132,25 @@ def scan():
         if cat:
             cats.append(cat)
 
+    # 5. Low-activity sessions (fewer than 3 turns, 0 checkpoints)
+    low_ids = _low_activity_session_ids()
+    if low_ids and ss_dir.exists():
+        low_files = []
+        for sdir in ss_dir.iterdir():
+            if sdir.name in low_ids and sdir.name != current_sid:
+                low_files.extend(f for f in sdir.rglob("*") if f.is_file())
+        cat = _category(
+            "low_activity",
+            f"Low-activity sessions (<{LOW_ACTIVITY_TURN_THRESHOLD} turns, no checkpoints)",
+            low_files,
+        )
+        if cat:
+            cat["session_count"] = sum(
+                1 for sdir in ss_dir.iterdir()
+                if sdir.name in low_ids and sdir.name != current_sid
+            )
+            cats.append(cat)
+
     return cats
 
 
@@ -113,6 +165,17 @@ def clean(category_ids):
                     results["freed"] += f["size"]
                 except OSError as e:
                     results["errors"].append(f"{f['path']}: {e}")
+            # Remove empty session directories left behind for low-activity cleanup
+            if cat["id"] == "low_activity":
+                current_sid = os.environ.get("COPILOT_SESSION_ID", "")
+                ss_dir = COPILOT_DIR / "session-state"
+                low_ids = _low_activity_session_ids()
+                for sdir in ss_dir.iterdir():
+                    if sdir.name in low_ids and sdir.name != current_sid:
+                        try:
+                            _rmtree(sdir)
+                        except OSError as e:
+                            results["errors"].append(f"{sdir}: {e}")
     results["freed_human"] = _human_size(results["freed"])
     return results
 

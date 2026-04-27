@@ -147,7 +147,8 @@ opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none}
         <input id="todoSearch" placeholder="Filter todos...">
       </div>
       <button class="btn btn-a" onclick="openModal('addModal')">+ Add Todo</button>
-      <button class="btn btn-s" onclick="openModal('importModal')">📥 Import Briefing</button>
+      <button class="btn btn-s" id="btnPullBriefing" onclick="pullBriefing()">📥 Pull Briefing</button>
+      <button class="btn btn-s" onclick="openModal('importModal')" title="Paste briefing text manually">📋 Paste</button>
     </div>
     <div class="stats" id="todoStats"></div>
     <div id="todoFilter" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
@@ -331,8 +332,32 @@ function onDBLoaded(name, size, lastMod) {
 async function tryAutoConnect() {
   try {
     const handle = await idbGet(HANDLE_STORE, 'dbHandle');
-    if (handle) await loadDBFromHandle(handle);
-  } catch (_) { /* first visit or permission denied — show connect banner */ }
+    if (!handle) return;
+    // Check if permission is already granted (no user gesture needed)
+    const perm = await handle.queryPermission({ mode: 'read' });
+    if (perm === 'granted') {
+      await loadDBFromHandle(handle);
+    } else {
+      // Permission not yet granted — show a one-click reconnect banner
+      showReconnectBanner(handle);
+    }
+  } catch (_) { /* first visit or handle invalid */ }
+}
+
+function showReconnectBanner(handle) {
+  const banner = document.getElementById('connectBanner');
+  banner.innerHTML = `
+    <h2>Reconnect session store</h2>
+    <p>Your previous <code>session-store.db</code> is remembered — just click to reconnect.</p>
+    <button class="btn btn-a" id="btnReconnect" style="font-size:15px;padding:10px 24px">🔗 Reconnect</button>
+    <p style="margin-top:8px"><button class="btn" onclick="pickDB()" style="font-size:12px;padding:4px 12px">Or pick a different file…</button></p>`;
+  document.getElementById('btnReconnect').onclick = async () => {
+    try {
+      await loadDBFromHandle(handle);
+    } catch (e) {
+      alert('Reconnect failed: ' + e.message);
+    }
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -618,7 +643,7 @@ function renderSessDetail(sid) {
 }
 
 function copyResume(id, btn) {
-  navigator.clipboard.writeText('copilot resume ' + id).then(() => {
+  navigator.clipboard.writeText('agency copilot --resume=' + id).then(() => {
     const orig = btn.innerHTML; btn.innerHTML = '✅ Copied!'; btn.classList.add('ok');
     setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('ok'); }, 1500);
   });
@@ -686,6 +711,95 @@ async function autoImportBriefing() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  Pull Briefing: one-click import from session store + reconcile
+// ═══════════════════════════════════════════════════════════════
+async function pullBriefing() {
+  if (!DB && !fileHandle) { showToast('⚠️ Connect session store first'); return; }
+
+  const btn = document.getElementById('btnPullBriefing');
+  btn.textContent = '⏳ Pulling...'; btn.disabled = true;
+
+  try {
+    // Auto-refresh the DB from disk to get the latest data
+    if (fileHandle) {
+      try { await loadDBFromHandle(fileHandle); }
+      catch (_) { /* permission may fail, continue with stale DB */ }
+    }
+    if (!DB) { showToast('⚠️ Connect session store first'); return; }
+    // Find the most recent briefing output from the session store
+    const rows = sqlAll(`
+      SELECT t.assistant_response, t.timestamp, s.id as session_id
+      FROM turns t JOIN sessions s ON t.session_id = s.id
+      WHERE (t.user_message LIKE '%daily-briefing%' OR t.user_message LIKE '%daily briefing%')
+        AND t.assistant_response LIKE '%Suggested Priorities%'
+        AND t.timestamp >= datetime('now', '-7 days')
+      ORDER BY t.timestamp DESC LIMIT 1
+    `);
+
+    if (!rows.length) {
+      showToast('⚠️ No recent briefing found in session store (last 7 days)');
+      return;
+    }
+
+    const row = rows[0];
+    const newItems = parseBriefing(row.assistant_response || '');
+
+    if (!newItems.length) {
+      showToast('⚠️ Could not parse priorities from briefing');
+      return;
+    }
+
+    // Reconcile: match by normalized title
+    const normalize = s => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const newTitles = new Set(newItems.map(t => normalize(t.title)));
+    const existingMap = new Map();
+    allTodos.forEach(t => existingMap.set(normalize(t.title), t));
+
+    let added = 0, completed = 0, kept = 0;
+
+    // 1. Mark old briefing todos not in new briefing as done
+    for (const todo of allTodos) {
+      if (todo.source === 'briefing' && todo.status !== 'done' && !newTitles.has(normalize(todo.title))) {
+        todo.status = 'done';
+        completed++;
+      }
+    }
+
+    // 2. Add new items that don't already exist
+    for (const item of newItems) {
+      const key = normalize(item.title);
+      if (existingMap.has(key)) {
+        // Update priority if changed, but don't re-add
+        const existing = existingMap.get(key);
+        if (existing.priority !== item.priority) existing.priority = item.priority;
+        // Reopen if it was done but reappeared in a new briefing
+        if (existing.status === 'done' && existing.source === 'briefing') {
+          existing.status = 'pending';
+        }
+        kept++;
+      } else {
+        item.created_at = row.timestamp || new Date().toISOString();
+        item.session_id = row.session_id;
+        allTodos.unshift(item);
+        added++;
+      }
+    }
+
+    await saveTodos();
+    renderTodos();
+
+    const parts = [];
+    if (added) parts.push(`${added} added`);
+    if (completed) parts.push(`${completed} completed`);
+    if (kept) parts.push(`${kept} unchanged`);
+    showToast(`📥 Briefing synced: ${parts.join(', ')}`, 4000);
+
+  } finally {
+    btn.textContent = '📥 Pull Briefing'; btn.disabled = false;
+  }
+}
+
 function showToast(msg, duration = 3000) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -725,7 +839,7 @@ async function scanCleanup() {
         <div class="ccat" id="cc-${c.id}">
           <div class="ccat-info">
             <div class="ccat-label">${esc(c.label)}</div>
-            <div class="ccat-meta">${c.count} files · ${humanSize(c.size)}</div>
+            <div class="ccat-meta">${c.session_count ? c.session_count + ' sessions · ' : ''}${c.count} files · ${humanSize(c.size)}</div>
           </div>
           <button class="btn btn-r" data-clean="${c.id}">Clean</button>
         </div>`).join('');
